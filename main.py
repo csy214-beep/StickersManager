@@ -25,7 +25,6 @@ from PySide6.QtGui import (
 from PIL import Image
 import keyboard
 
-program_icon="assets/st.png"
 
 # ==================== 配置管理器 ====================
 class ConfigManager:
@@ -650,9 +649,11 @@ class SystemTrayManager:
         logging.info("表情库已重新加载")
 
     def quit_app(self):
+        global flag
         """退出应用"""
+        flag = False
         logging.info("应用退出")
-        # self.app.quit()
+        self.app.quit()
         exit(0)
 
 
@@ -692,8 +693,10 @@ class HotkeyListener(QThread):
 
 
 # ==================== 主程序 ====================
-def main():
-    """主函数"""
+
+if __name__ == '__main__':
+    program_icon = "assets/st.png"
+    flag = True
     # 设置日志
     setup_logging()
     logging.info("=" * 50)
@@ -732,7 +735,3 @@ def main():
 
     logging.info("应用已退出")
     sys.exit(exit_code)
-
-
-if __name__ == '__main__':
-    main()
