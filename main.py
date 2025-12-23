@@ -652,7 +652,7 @@ class SystemTrayManager:
     def quit_app(self):
         """退出应用"""
         logging.info("应用退出")
-        self.app.quit()
+        # self.app.quit()
         exit(0)
 
 
