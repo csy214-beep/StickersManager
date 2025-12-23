@@ -653,6 +653,7 @@ class SystemTrayManager:
         """退出应用"""
         logging.info("应用退出")
         self.app.quit()
+        exit(0)
 
 
 # ==================== 全局热键监听 ====================
@@ -704,7 +705,7 @@ def main():
 
     # 创建应用
     app = QApplication(sys.argv)
-    app.setQuitOnLastWindowClosed(False)  # 关闭窗口不退出应用
+    # app.setQuitOnLastWindowClosed(False)  # 关闭窗口不退出应用
     app.setWindowIcon(QIcon(program_icon))
 
     # 创建主窗口
