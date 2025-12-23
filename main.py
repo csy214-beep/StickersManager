@@ -7,6 +7,7 @@ import sys
 import os
 import json
 import logging
+import threading
 from pathlib import Path
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QPushButton, QLineEdit, QLabel, QSystemTrayIcon,
     QMenu, QFileDialog, QMessageBox, QGridLayout, QFrame
 )
-from PySide6.QtCore import Qt, QSize, QTimer, Signal, QThread
+from PySide6.QtCore import Qt, QSize, QTimer, Signal, QThread, QObject
 from PySide6.QtGui import (
     QPixmap, QImage, QIcon, QPainter, QColor, QPalette,
     QClipboard, QKeySequence, QShortcut
@@ -25,6 +26,7 @@ from PySide6.QtGui import (
 from PIL import Image
 import keyboard
 
+program_icon = "assets/st.png"
 
 # ==================== 配置管理器 ====================
 class ConfigManager:
@@ -300,6 +302,46 @@ class CategoryButton(QPushButton):
             self.setIconSize(QSize(self.width() - 10, self.height() - 10))
 
 
+# ==================== 全局热键监听 ====================
+class HotkeyListener(QObject):
+    """全局热键监听器"""
+
+    hotkey_pressed = Signal()
+
+    def __init__(self, hotkey: str):
+        super().__init__()
+        self.hotkey = hotkey
+        self.running = True
+        self.thread = None
+
+    def start(self):
+        """启动热键监听"""
+        self.running = True
+        try:
+            keyboard.add_hotkey(self.hotkey, self.on_hotkey)
+            logging.info(f"全局热键已注册: {self.hotkey}")
+        except Exception as e:
+            logging.error(f"热键注册失败: {e}")
+
+    def stop(self):
+        """停止热键监听"""
+        self.running = False
+        try:
+            keyboard.remove_hotkey(self.hotkey)
+        except:
+            pass
+        try:
+            keyboard.unhook_all()
+        except:
+            pass
+        logging.info("热键监听已停止")
+
+    def on_hotkey(self):
+        """热键触发"""
+        if self.running:
+            self.hotkey_pressed.emit()
+
+
 # ==================== 主窗口 ====================
 class StickerManagerWindow(QMainWindow):
     """表情包管理器主窗口"""
@@ -509,7 +551,6 @@ class StickerManagerWindow(QMainWindow):
             # 加载缩略图
             self.load_thumbnail_for_cell(cell, sticker_path)
 
-
     def load_thumbnail_for_cell(self, cell: StickerCell, image_path: Path):
         """为表情单元格加载缩略图"""
         pixmap = self.get_thumbnail(image_path, cell.cell_size - 10)
@@ -603,12 +644,21 @@ class StickerManagerWindow(QMainWindow):
 
 
 # ==================== 系统托盘 ====================
-class SystemTrayManager:
+class SystemTrayManager(QObject):
     """系统托盘管理器"""
 
-    def __init__(self, app: QApplication, window: StickerManagerWindow):
+    def __init__(
+        self,
+        app: QApplication,
+        window: StickerManagerWindow,
+        config: ConfigManager,
+        hotkey_listener: HotkeyListener,
+    ):
+        super().__init__()
         self.app = app
         self.window = window
+        self.config = config
+        self.hotkey_listener = hotkey_listener
 
         # 创建托盘图标
         self.tray_icon = QSystemTrayIcon(self.app)
@@ -649,54 +699,22 @@ class SystemTrayManager:
         logging.info("表情库已重新加载")
 
     def quit_app(self):
-        global flag
         """退出应用"""
-        flag = False
-        logging.info("应用退出")
+        logging.info("应用退出中...")
+
+        # 停止热键监听
+        self.hotkey_listener.stop()
+
+        # 保存配置
+        self.config.save_config()
+
+        # 退出应用
         self.app.quit()
-        exit(0)
-
-
-# ==================== 全局热键监听 ====================
-class HotkeyListener(QThread):
-    """全局热键监听线程"""
-
-    hotkey_pressed = Signal()
-
-    def __init__(self, hotkey: str):
-        super().__init__()
-        self.hotkey = hotkey
-        self.running = True
-
-    def run(self):
-        """监听热键"""
-        try:
-            keyboard.add_hotkey(self.hotkey, self.on_hotkey)
-            logging.info(f"全局热键已注册: {self.hotkey}")
-
-            while self.running:
-                keyboard.wait()
-        except Exception as e:
-            logging.error(f"热键注册失败: {e}")
-
-    def on_hotkey(self):
-        """热键触发"""
-        self.hotkey_pressed.emit()
-
-    def stop(self):
-        """停止监听"""
-        self.running = False
-        try:
-            keyboard.unhook_all()
-        except:
-            pass
 
 
 # ==================== 主程序 ====================
-
-if __name__ == '__main__':
-    program_icon = "assets/st.png"
-    flag = True
+def main():
+    """主函数"""
     # 设置日志
     setup_logging()
     logging.info("=" * 50)
@@ -708,20 +726,24 @@ if __name__ == '__main__':
 
     # 创建应用
     app = QApplication(sys.argv)
-    # app.setQuitOnLastWindowClosed(False)  # 关闭窗口不退出应用
+    app.setQuitOnLastWindowClosed(False)  # 关闭窗口不退出应用
     app.setWindowIcon(QIcon(program_icon))
+
+    # 创建热键监听器
+    hotkey = config.get('hotkey', 'ctrl+shift+e')
+    hotkey_listener = HotkeyListener(hotkey)
 
     # 创建主窗口
     window = StickerManagerWindow(config)
 
-    # 创建系统托盘
-    tray = SystemTrayManager(app, window)
-
-    # 注册全局热键
-    hotkey = config.get('hotkey', 'ctrl+shift+e')
-    hotkey_listener = HotkeyListener(hotkey)
+    # 连接热键信号
     hotkey_listener.hotkey_pressed.connect(lambda: window.show_window() if window.isHidden() else window.hide_window())
+
+    # 启动热键监听
     hotkey_listener.start()
+
+    # 创建系统托盘
+    tray = SystemTrayManager(app, window, config, hotkey_listener)
 
     # 显示窗口
     window.show_window()
@@ -731,7 +753,10 @@ if __name__ == '__main__':
 
     # 清理
     hotkey_listener.stop()
-    hotkey_listener.wait()
 
     logging.info("应用已退出")
     sys.exit(exit_code)
+
+
+if __name__ == '__main__':
+    main()
