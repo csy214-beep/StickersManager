@@ -26,7 +26,36 @@ from PySide6.QtGui import (
 from PIL import Image
 import keyboard
 
-program_icon = "assets/st.png"
+
+# ==================== 资源路径处理 ====================
+def resource_path(relative_path):
+    """获取资源的绝对路径。打包到PyInstaller后，使用临时文件夹路径"""
+    try:
+        # PyInstaller创建临时文件夹，将路径存储在_MEIPASS中
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+
+# 图标路径
+try:
+    program_icon = resource_path("assets/st.ico")
+    # 检查文件是否存在
+    if not os.path.exists(program_icon):
+        # 尝试相对路径
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        program_icon = os.path.join(base_dir, "assets", "st.ico")
+        if not os.path.exists(program_icon):
+            # 如果都没有，创建一个临时的图标文件
+            program_icon = None
+            logging.warning("图标文件未找到，将使用默认图标")
+except Exception as e:
+    program_icon = None
+    logging.warning(f"图标路径处理失败: {e}")
+
+logging.info(f"图标路径: {program_icon}")
 
 # ==================== 配置管理器 ====================
 class ConfigManager:
@@ -662,7 +691,37 @@ class SystemTrayManager(QObject):
 
         # 创建托盘图标
         self.tray_icon = QSystemTrayIcon(self.app)
-        self.tray_icon.setIcon(QIcon(program_icon))
+
+        # 设置图标，增加错误处理
+        try:
+            if program_icon and os.path.exists(program_icon):
+                icon = QIcon(program_icon)
+                if not icon.isNull():
+                    self.tray_icon.setIcon(icon)
+                else:
+                    # 使用默认图标
+                    self.tray_icon.setIcon(
+                        self.app.style().standardIcon(
+                            self.app.style().StandardPixmap.SP_ComputerIcon
+                        )
+                    )
+                    logging.warning("图标加载失败，使用默认图标")
+            else:
+                # 使用默认图标
+                self.tray_icon.setIcon(
+                    self.app.style().standardIcon(
+                        self.app.style().StandardPixmap.SP_ComputerIcon
+                    )
+                )
+                logging.warning("图标文件不存在，使用默认图标")
+        except Exception as e:
+            logging.error(f"设置托盘图标失败: {e}")
+            # 使用默认图标
+            self.tray_icon.setIcon(
+                self.app.style().standardIcon(
+                    self.app.style().StandardPixmap.SP_ComputerIcon
+                )
+            )
 
         # 创建托盘菜单
         tray_menu = QMenu()

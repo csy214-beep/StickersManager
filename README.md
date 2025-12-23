@@ -31,7 +31,7 @@ python main.py
 构建：
 
 ```shell
-pyinstaller -w -i assets/st.png main.py
+pyinstaller --windowed --add-data="assets/st.ico;assets" --icon="assets/st.ico" main.py
 ```
 
 # 许可证
