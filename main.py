@@ -57,6 +57,7 @@ except Exception as e:
 
 logging.info(f"图标路径: {program_icon}")
 
+
 # ==================== 配置管理器 ====================
 class ConfigManager:
     """JSON配置文件管理"""
@@ -650,26 +651,32 @@ class StickerManagerWindow(QMainWindow):
 
     def on_sticker_double_clicked(self, sticker_path: Path):
         """表情双击事件 - 复制到剪贴板"""
+        _msg = f"已复制表情: {sticker_path.name}"  # 默认消息
+        _icon = QSystemTrayIcon.MessageIcon.Information  # 默认图标
         try:
             pixmap = QPixmap(str(sticker_path))
             if not pixmap.isNull():
                 clipboard = QApplication.clipboard()
                 clipboard.setPixmap(pixmap)
-                logging.info(f"已复制表情: {sticker_path.name}")
-
                 # 可选：复制后自动隐藏窗口
                 self.hide_window()
-                # 获取托盘图标
-                tray = get_existing_tray_icon()
-                # 显示提示
-                if tray:
-                    tray.showMessage(
-                        self.windowTitle(),
-                        f"已复制表情: {sticker_path.name}",
-                        msecs=1000,
-                    )
+                logging.info(_msg)
+
         except Exception as e:
-            logging.error(f"复制表情失败: {e}")
+            _msg = f"复制表情失败: {e}"
+            _icon = QSystemTrayIcon.MessageIcon.Critical
+            logging.error(_msg)
+        finally:
+            # 获取托盘图标
+            tray = get_existing_tray_icon()
+            # 显示提示
+            if tray:
+                tray.showMessage(
+                    self.windowTitle(),
+                    _msg,
+                    icon=_icon,
+                    msecs=1000,
+                )
 
     def on_search(self, text: str):
         """搜索事件"""
@@ -717,11 +724,11 @@ class SystemTrayManager(QObject):
     """系统托盘管理器"""
 
     def __init__(
-        self,
-        app: QApplication,
-        window: StickerManagerWindow,
-        config: ConfigManager,
-        hotkey_listener: HotkeyListener,
+            self,
+            app: QApplication,
+            window: StickerManagerWindow,
+            config: ConfigManager,
+            hotkey_listener: HotkeyListener,
     ):
         super().__init__()
         self.app = app
@@ -788,7 +795,7 @@ class SystemTrayManager(QObject):
         if reason == QSystemTrayIcon.DoubleClick:
             if self.window.isHidden():
                 self.window.show_window()
-            else :
+            else:
                 self.window.hide()
 
     def reload_library(self):
