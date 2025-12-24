@@ -57,6 +57,7 @@ except Exception as e:
 
 logging.info(f"图标路径: {program_icon}")
 
+
 # ==================== 配置管理器 ====================
 class ConfigManager:
     """JSON配置文件管理"""
@@ -88,17 +89,14 @@ class ConfigManager:
             "ui": {
                 "category_button_size": 90,
                 "grid_cell_size": 120,
-                "grid_columns": 3
+                "grid_columns": 3,
             },
             "behavior": {
                 "copy_on_double_click": True,
                 "highlight_on_click": True,
-                "search_delay_ms": 300
+                "search_delay_ms": 300,
             },
-            "performance": {
-                "thumbnail_cache_size": 200,
-                "lazy_load_enabled": True
-            }
+            "performance": {"thumbnail_cache_size": 200, "lazy_load_enabled": True},
         }
 
     def save_config(self):
@@ -371,6 +369,29 @@ class HotkeyListener(QObject):
             self.hotkey_pressed.emit()
 
 
+def get_existing_tray_icon() -> QSystemTrayIcon | None:
+    """遍历应用内所有对象，找到第一个QSystemTrayIcon实例"""
+    app = QApplication.instance()
+    if not app:
+        return None
+
+    # 递归查找 QSystemTrayIcon
+    def find_tray_in_children(parent) -> QSystemTrayIcon | None:
+        # 检查当前对象是否是 QSystemTrayIcon
+        if isinstance(parent, QSystemTrayIcon):
+            return parent
+
+        # 检查所有子对象
+        for child in parent.children():
+            result = find_tray_in_children(child)
+            if result:
+                return result
+        return None
+
+    # 从应用程序实例开始查找
+    return find_tray_in_children(app)
+
+
 # ==================== 主窗口 ====================
 class StickerManagerWindow(QMainWindow):
     """表情包管理器主窗口"""
@@ -565,7 +586,15 @@ class StickerManagerWindow(QMainWindow):
         cell_size = self.config.get('ui.grid_cell_size', 120)
         columns = self.config.get('ui.grid_columns', 3)
 
-        for idx, sticker_path in enumerate(stickers):
+        # 使用独立的计数器跟踪实际添加的单元格
+        idx = 0
+
+        for _, sticker_path in enumerate(stickers):
+            # 跳过预览图
+            if os.path.basename(sticker_path).startswith(".preview"):
+                continue
+
+            # 使用实际添加的单元格索引计算行列
             row = idx // columns
             col = idx % columns
 
@@ -579,6 +608,9 @@ class StickerManagerWindow(QMainWindow):
 
             # 加载缩略图
             self.load_thumbnail_for_cell(cell, sticker_path)
+
+            # 递增实际单元格计数器
+            idx += 1
 
     def load_thumbnail_for_cell(self, cell: StickerCell, image_path: Path):
         """为表情单元格加载缩略图"""
@@ -619,17 +651,32 @@ class StickerManagerWindow(QMainWindow):
 
     def on_sticker_double_clicked(self, sticker_path: Path):
         """表情双击事件 - 复制到剪贴板"""
+        _msg = f"已复制表情: {sticker_path.name}"  # 默认消息
+        _icon = QSystemTrayIcon.MessageIcon.Information  # 默认图标
         try:
             pixmap = QPixmap(str(sticker_path))
             if not pixmap.isNull():
                 clipboard = QApplication.clipboard()
                 clipboard.setPixmap(pixmap)
-                logging.info(f"已复制表情: {sticker_path.name}")
-
                 # 可选：复制后自动隐藏窗口
-                # self.hide_window()
+                self.hide_window()
+                logging.info(_msg)
+
         except Exception as e:
-            logging.error(f"复制表情失败: {e}")
+            _msg = f"复制表情失败: {e}"
+            _icon = QSystemTrayIcon.MessageIcon.Critical
+            logging.error(_msg)
+        finally:
+            # 获取托盘图标
+            tray = get_existing_tray_icon()
+            # 显示提示
+            if tray:
+                tray.showMessage(
+                    self.windowTitle(),
+                    _msg,
+                    icon=_icon,
+                    msecs=1000,
+                )
 
     def on_search(self, text: str):
         """搜索事件"""
@@ -677,11 +724,11 @@ class SystemTrayManager(QObject):
     """系统托盘管理器"""
 
     def __init__(
-        self,
-        app: QApplication,
-        window: StickerManagerWindow,
-        config: ConfigManager,
-        hotkey_listener: HotkeyListener,
+            self,
+            app: QApplication,
+            window: StickerManagerWindow,
+            config: ConfigManager,
+            hotkey_listener: HotkeyListener,
     ):
         super().__init__()
         self.app = app
@@ -748,7 +795,7 @@ class SystemTrayManager(QObject):
         if reason == QSystemTrayIcon.DoubleClick:
             if self.window.isHidden():
                 self.window.show_window()
-            else :
+            else:
                 self.window.hide()
 
     def reload_library(self):
@@ -805,7 +852,7 @@ def main():
     tray = SystemTrayManager(app, window, config, hotkey_listener)
 
     # 显示窗口
-    window.show_window()
+    # window.show_window()
 
     # 运行应用
     exit_code = app.exec()
