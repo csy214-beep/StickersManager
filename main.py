@@ -845,7 +845,7 @@ def main():
     tray = SystemTrayManager(app, window, config, hotkey_listener)
 
     # 显示窗口
-    window.show_window()
+    # window.show_window()
 
     # 运行应用
     exit_code = app.exec()
