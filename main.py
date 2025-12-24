@@ -82,7 +82,7 @@ class ConfigManager:
         """获取默认配置"""
         return {
             "library_path": "",
-            "hotkey": "ctrl+shift+z",
+            "hotkey": "ctrl+shift+e",
             "window_position": [900, 50],
             "window_size": [600, 430],
             "ui": {
