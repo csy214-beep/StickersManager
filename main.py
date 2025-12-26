@@ -18,12 +18,18 @@ from PySide6.QtWidgets import (
     QScrollArea, QPushButton, QLineEdit, QLabel, QSystemTrayIcon,
     QMenu, QFileDialog, QMessageBox, QGridLayout, QFrame
 )
-from PySide6.QtCore import Qt, QSize, QTimer, Signal, QThread, QObject
+from PySide6.QtCore import Qt, QSize, QTimer, Signal, QThread, QObject, QUrl, QMimeData
 from PySide6.QtGui import (
-    QPixmap, QImage, QIcon, QPainter, QColor, QPalette,
-    QClipboard, QKeySequence, QShortcut
+    QPixmap,
+    QImage,
+    QIcon,
+    QPainter,
+    QColor,
+    QPalette,
+    QClipboard,
+    QKeySequence,
+    QShortcut,
 )
-from PySide6.QtCore import QUrl, QMimeData
 from PIL import Image
 import keyboard
 
