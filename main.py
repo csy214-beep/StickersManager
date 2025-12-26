@@ -23,6 +23,7 @@ from PySide6.QtGui import (
     QPixmap, QImage, QIcon, QPainter, QColor, QPalette,
     QClipboard, QKeySequence, QShortcut
 )
+from PySide6.QtCore import QUrl, QMimeData
 from PIL import Image
 import keyboard
 
@@ -650,26 +651,39 @@ class StickerManagerWindow(QMainWindow):
                 cell.clear_highlight()
 
     def on_sticker_double_clicked(self, sticker_path: Path):
-        """表情双击事件 - 复制到剪贴板"""
-        _msg = f"已复制表情: {sticker_path.name}"  # 默认消息
-        _icon = QSystemTrayIcon.MessageIcon.Information  # 默认图标
+        """表情双击事件 - 复制文件本体到剪贴板"""
+        _msg = f"已复制表情: {sticker_path.name}"
+        _icon = QSystemTrayIcon.MessageIcon.Information
+
         try:
-            pixmap = QPixmap(str(sticker_path))
-            if not pixmap.isNull():
-                clipboard = QApplication.clipboard()
-                clipboard.setPixmap(pixmap)
-                # 可选：复制后自动隐藏窗口
-                self.hide_window()
-                logging.info(_msg)
+            # 创建 MIME 数据，包含文件路径
+            mime_data = QMimeData()
+
+            # 添加文件 URL
+            from PySide6.QtCore import QUrl
+
+            file_url = QUrl.fromLocalFile(str(sticker_path))
+            mime_data.setUrls([file_url])
+
+            # 同时添加文本格式的文件路径（作为备份）
+            mime_data.setText(str(sticker_path))
+
+            # 获取剪贴板并设置 MIME 数据
+            clipboard = QApplication.clipboard()
+            clipboard.setMimeData(mime_data)
+
+            # 可选：复制后自动隐藏窗口
+            self.hide_window()
+            logging.info(_msg)
 
         except Exception as e:
             _msg = f"复制表情失败: {e}"
             _icon = QSystemTrayIcon.MessageIcon.Critical
             logging.error(_msg)
+
         finally:
-            # 获取托盘图标
+            # 获取托盘图标并显示提示
             tray = get_existing_tray_icon()
-            # 显示提示
             if tray:
                 tray.showMessage(
                     self.windowTitle(),
