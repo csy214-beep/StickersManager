@@ -1,5 +1,9 @@
 # 介绍
 
+>[!NOTE]
+>
+>Check new repo at [StickersManager2](https://github.com/csy214-beep/StickersManager2)
+
 参考[EweSticker](https://github.com/FredHappyface/Android.EweSticker)，在Windows上实现表情包管理
 
 # 预览
